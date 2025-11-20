@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Venom Studio AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@200..700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Readex Pro', 'sans-serif'],
+            },
+            colors: {
+              studio: {
+                base: '#0f0f0f',      // Deep Dark
+                panel: '#1a1a1a',     // Dark Grey Panel
+                border: '#333333',
+                accent: '#d946ef',    // Magenta/Fuchsia
+                secondary: '#8b5cf6', // Violet
+                text: '#FFFFFF',
+                muted: '#9ca3af',
+                success: '#10B981'
+              }
+            },
+            backgroundImage: {
+              'studio-gradient': 'linear-gradient(to right, #8a2be2, #ff00ff)', // Original Neon Gradient
+              'studio-glass': 'linear-gradient(180deg, rgba(26, 26, 26, 0.8) 0%, rgba(26, 26, 26, 0.6) 100%)'
+            },
+            boxShadow: {
+              'neon': '0 0 20px -5px rgba(217, 70, 239, 0.5)',
+              'glow': '0 0 40px -10px rgba(139, 92, 246, 0.3)'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0f0f0f;
+        color: #ffffff;
+        background-image: 
+          radial-gradient(circle at 20% 20%, rgba(138, 43, 226, 0.15), transparent 40%), 
+          radial-gradient(circle at 80% 80%, rgba(255, 0, 255, 0.15), transparent 40%);
+        background-attachment: fixed;
+      }
+      
+      /* Glassmorphism utilities */
+      .glass-panel {
+        background: rgba(30, 30, 30, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f0f0f;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #d946ef;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
