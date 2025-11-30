@@ -1,68 +1,145 @@
-import React, { useRef } from 'react';
+
+
+import React, { useRef, useState } from 'react';
+import { StylePreset } from '../types';
 
 interface UploadAreaProps {
-  image: string | null;
-  onImageUpload: (base64: string) => void;
+  images: string[];
+  onImagesChange: (newImages: string[]) => void;
   onClear: () => void;
+  selectedStyle?: StylePreset;
 }
 
-export const UploadArea: React.FC<UploadAreaProps> = ({ image, onImageUpload, onClear }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export const UploadArea: React.FC<UploadAreaProps> = ({ images, onImagesChange, onClear, selectedStyle }) => {
+  const [slotCount, setSlotCount] = useState<number>(1);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const isTextMode = selectedStyle === StylePreset.IMAGINE_V5 || selectedStyle === StylePreset.PURE_CREATION;
+  const isCrazyMode = selectedStyle === StylePreset.IMAGINE_V5;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        onImageUpload(reader.result as string);
+        const newImages = [...images];
+        // Ensure array is big enough
+        while (newImages.length <= index) newImages.push(""); 
+        newImages[index] = reader.result as string;
+        onImagesChange(newImages);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const triggerUpload = () => {
-    fileInputRef.current?.click();
+  const clearSlot = (index: number, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newImages = [...images];
+      newImages.splice(index, 1);
+      onImagesChange(newImages);
   };
 
-  return (
-    <div className="w-full h-full min-h-[500px] bg-[#0f0f0f]/60 rounded-3xl border border-white/5 hover:border-studio-accent/40 transition-all duration-300 flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl backdrop-blur-sm">
-      {image ? (
-        <>
-          <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1px,transparent_1px)] [background-size:20px_20px] opacity-30"></div>
-          <img 
-            src={image} 
-            alt="Original" 
-            className="w-full h-full object-contain p-10 z-10 drop-shadow-2xl" 
-          />
-          <div className="absolute top-4 right-4 z-20">
-            <button 
-              onClick={onClear}
-              className="bg-black/60 hover:bg-red-500/20 text-white/60 hover:text-red-400 p-2.5 rounded-full backdrop-blur-md transition-all border border-white/10 hover:border-red-500/50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-            </button>
-          </div>
-        </>
-      ) : (
-        <div 
-          onClick={triggerUpload}
-          className="flex flex-col items-center justify-center cursor-pointer w-full h-full p-8 z-10"
-        >
-          <div className="relative mb-8 group-hover:scale-105 transition-transform duration-500">
-             <div className="absolute inset-0 bg-studio-accent/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
-             <div className="w-24 h-24 bg-[#1a1a1a] rounded-full flex items-center justify-center relative border border-white/5 group-hover:border-studio-accent/50 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-10 h-10 text-white/50 group-hover:text-studio-accent transition-colors">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-             </div>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2 text-center">Upload Person or Product</h3>
-          <p className="text-white/40 text-center text-sm">Supports PNG, JPG, WEBP</p>
+  const triggerUpload = (index: number) => {
+    if (isTextMode) return; 
+    fileInputRefs.current[index]?.click();
+  };
+
+  const setSlots = (count: number) => {
+      setSlotCount(count);
+      // Optional: trim images if reducing count? Or keep them. Let's keep them in memory but hide UI.
+  }
+
+  // Text Mode UI
+  if (isTextMode) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-studio-base/50 rounded-xl relative overflow-hidden group border-2 border-dashed border-studio-border hover:border-slate-300 transition-colors">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] opacity-50"></div>
+            
+            <div className="relative z-10 flex flex-col items-center text-center p-8">
+                <div className="w-20 h-20 bg-studio-panel rounded-full flex items-center justify-center mb-4 shadow-lg border border-white/5">
+                    <span className="text-4xl">{isCrazyMode ? '🌌' : '🎨'}</span>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-wider">
+                    {isCrazyMode ? 'Creation from Scratch' : 'Realistic Scene'}
+                </h3>
+                <p className="text-studio-secondary text-xs max-w-xs">
+                   Image upload is disabled.<br/>Describe your vision in the prompt bar above.
+                </p>
+            </div>
         </div>
-      )}
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+      );
+  }
+
+  // Grid Mode UI
+  return (
+    <div className="w-full h-full flex flex-col gap-2">
+        
+        {/* Slot Selector Header */}
+        <div className="flex justify-between items-center px-2">
+             <span className="text-[10px] uppercase font-bold text-studio-secondary tracking-widest">Original Images (Angles)</span>
+             <div className="flex bg-studio-base border border-white/5 rounded-lg p-1 gap-1">
+                {[1, 2, 3, 4].map(n => (
+                    <button 
+                        key={n}
+                        onClick={() => setSlots(n)}
+                        className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold transition-all ${slotCount === n ? 'bg-studio-accent text-black shadow-gold-glow' : 'text-white/30 hover:bg-white/5'}`}
+                    >
+                        {n}
+                    </button>
+                ))}
+             </div>
+        </div>
+
+        {/* Dynamic Grid */}
+        <div className={`flex-1 grid gap-3 ${
+            slotCount === 1 ? 'grid-cols-1' : 
+            slotCount === 2 ? 'grid-cols-2' : 
+            'grid-cols-2 grid-rows-2' // 3 and 4 fit in 2x2
+        }`}>
+            {Array.from({ length: slotCount }).map((_, index) => {
+                const image = images[index];
+                return (
+                    <div 
+                        key={index}
+                        onClick={() => triggerUpload(index)}
+                        className="w-full h-full bg-studio-base/50 rounded-xl flex flex-col items-center justify-center relative group border-2 border-dashed border-studio-border hover:border-studio-accent/50 hover:bg-white/5 transition-all overflow-hidden cursor-pointer"
+                    >
+                        {image ? (
+                            <>
+                                <div className="absolute inset-0 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:20px_20px] opacity-5"></div>
+                                <img 
+                                    src={image} 
+                                    alt={`Slot ${index + 1}`} 
+                                    className="w-full h-full object-contain p-2 z-10 relative" 
+                                />
+                                <button 
+                                    onClick={(e) => clearSlot(index, e)}
+                                    className="absolute top-2 right-2 z-20 bg-red-500/80 hover:bg-red-600 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-md backdrop-blur-md text-xs"
+                                >
+                                    ✕
+                                </button>
+                                <span className="absolute bottom-2 left-2 bg-black/50 text-white text-[9px] px-2 py-1 rounded backdrop-blur">
+                                    Angle {index + 1}
+                                </span>
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center p-4 z-10 opacity-50 group-hover:opacity-100 transition-opacity">
+                                <span className="text-2xl mb-2 text-studio-secondary">+</span>
+                                <span className="text-[9px] uppercase tracking-wider text-studio-secondary">Upload Angle {index + 1}</span>
+                            </div>
+                        )}
+                        <input 
+                            type="file" 
+                            ref={el => fileInputRefs.current[index] = el} 
+                            onChange={(e) => handleFileChange(e, index)} 
+                            accept="image/*" 
+                            className="hidden" 
+                        />
+                    </div>
+                );
+            })}
+        </div>
+        
     </div>
   );
 };

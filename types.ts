@@ -1,6 +1,18 @@
+
+
 export enum StylePreset {
+  FREE_EDIT = 'FREE_EDIT', // New Free Edit Mode
   DEVELOPER_PRO = 'DEVELOPER_PRO',
+  CODING_HOLOGRAM = 'CODING_HOLOGRAM', 
+  FILES_3D_RENDER = 'FILES_3D_RENDER', 
+  SMARTPHONE_PHOTO = 'SMARTPHONE_PHOTO',
+  TECH_ACCESSORIES = 'TECH_ACCESSORIES',
   SMART_AD = 'SMART_AD',
+  IMAGINE_V5 = 'IMAGINE_V5',
+  PURE_CREATION = 'PURE_CREATION',
+  SHOES_ELEGANCE = 'SHOES_ELEGANCE',
+  FASHION_CLOTHING = 'FASHION_CLOTHING',
+  FOOD_PHOTOGRAPHY = 'FOOD_PHOTOGRAPHY',
   REMOVE_BG = 'REMOVE_BG', 
   PORTRAIT = 'PORTRAIT',
   VINTAGE = 'VINTAGE',
@@ -24,7 +36,12 @@ export enum SubjectPose {
   LOW_ANGLE_HERO = 'زاوية بطولية من الأسفل',
   SIDE_PROFILE = 'بروفايل جانبي',
   BUSY_TYPING = 'منهمك في الكتابة (Coding)',
-  WIDE_SHOT = 'لقطة واسعة مع المحيط'
+  WIDE_SHOT = 'لقطة واسعة مع المحيط',
+  FLOATING_SHOE = 'حذاء طائر (ديناميكي)',
+  ON_PEDESTAL = 'على منصة عرض',
+  FASHION_WALK = 'مشية عارض أزياء',
+  PHONE_HAND_HELD = 'ممسوك باليد (In Hand)',
+  PHONE_FLAT_LAY = 'موضوع على طاولة (Flat)'
 }
 
 export enum FaceDirection {
@@ -45,6 +62,16 @@ export enum CameraAngle {
   RIGHT_SIDE = 'من اليمين',
   LEFT_SIDE = 'من اليسار',
   BACK = 'من الخلف'
+}
+
+export enum CameraDistance {
+  MACRO = 'ماكرو (تقريب فائق للتفاصيل)',
+  CLOSE_UP = 'قريب جداً (Close Up)',
+  MEDIUM_CLOSE = 'متوسط القرب (Portrait)',
+  MEDIUM = 'مسافة متوسطة (Medium Shot)',
+  FULL_SHOT = 'لقطة كاملة (Full Body)',
+  LONG_SHOT = 'بعيد (مع الخلفية)',
+  EXTREME_LONG_SHOT = 'بعيد جداً (منظر عام)'
 }
 
 export enum LightingPreset {
@@ -85,6 +112,7 @@ export interface GenerationConfig {
   prompt: string; 
   style: StylePreset;
   angle: CameraAngle;
+  distance: CameraDistance;
   lighting: LightingPreset;
   resolution: Resolution;
   aspectRatio: AspectRatio; 
@@ -92,7 +120,7 @@ export interface GenerationConfig {
 }
 
 export interface AppState {
-  originalImage: string | null; 
+  originalImages: string[]; // Changed to array
   referenceImage: string | null;
   generatedImage: string | null; 
   isProcessing: boolean;
@@ -100,7 +128,62 @@ export interface AppState {
   processingStep: string; 
 }
 
+export interface ImageAnalysisResult {
+  creationPrompt: string;
+  preservationPrompt: string;
+}
+
 export const STYLE_DEFINITIONS: Record<StylePreset, { label: string; icon: string; promptSuffix: string }> = {
+  [StylePreset.FREE_EDIT]: {
+    label: 'تعديل حر (Magic Edit)',
+    icon: '🪄',
+    promptSuffix: 'Creative Image Editing based on user prompt. Freedom to modify subject and environment.'
+  },
+  [StylePreset.FILES_3D_RENDER]: {
+    label: 'تجسيم ملفات 3D',
+    icon: '📂✨',
+    promptSuffix: '3D Isometric Render of Files and Folders, Claymorphism, Blender Style, Floating Elements, Frosted Glass, Cute 3D Icons.'
+  },
+  [StylePreset.CODING_HOLOGRAM]: {
+    label: 'سحر الأكواد (هولوغرام)',
+    icon: '💻✨',
+    promptSuffix: 'Futuristic Laptop Photography, Holographic Code Flow, Glowing Data Streams, 3D Floating Syntax, Volumetric Lighting, High-End Tech Ad.'
+  },
+  [StylePreset.IMAGINE_V5]: {
+    label: 'تخيل جنوني (من الصفر)',
+    icon: '🌌',
+    promptSuffix: 'Pure Text-to-Image Generation. Create a mind-bending, futuristic, high-tech masterpiece.'
+  },
+  [StylePreset.PURE_CREATION]: {
+    label: 'تخيل مشهد (واقعي/حر)',
+    icon: '🎨',
+    promptSuffix: 'Pure Text-to-Image. Photorealistic, High-End Production, Cinematic Composition, Natural Details.'
+  },
+  [StylePreset.SMARTPHONE_PHOTO]: {
+    label: 'تصوير هواتف (Tech)',
+    icon: '📱',
+    promptSuffix: 'High-End Tech Product Photography, Sleek Smartphone Presentation, Screen Reflection, Glossy Finish, Futuristic Lighting, Clean Surface.'
+  },
+  [StylePreset.TECH_ACCESSORIES]: {
+    label: 'اكسسوارات تقنية',
+    icon: '🎧',
+    promptSuffix: 'Professional Tech Accessories Photography. Headphones, Watches, Cases. Focus on Materials (Silicone, Mesh, Leather, Metal). Clean Studio Lighting.'
+  },
+  [StylePreset.SHOES_ELEGANCE]: {
+    label: 'أحذية فاخرة (Sneakers)',
+    icon: '👟',
+    promptSuffix: 'Professional Shoe Photography, Hypebeast Style, Dynamic Floating or Concrete Surface, Sharp Focus on Texture/Fabric, Commercial Lighting.'
+  },
+  [StylePreset.FASHION_CLOTHING]: {
+    label: 'أزياء وملابس (Fashion)',
+    icon: '👗',
+    promptSuffix: 'High Fashion Editorial, Vogue Style, Focus on Fabric Drape and Texture, Professional Model or Mannequin, Neutral Luxury Background.'
+  },
+  [StylePreset.FOOD_PHOTOGRAPHY]: {
+    label: 'تصوير أطعمة (Food)',
+    icon: '🍩',
+    promptSuffix: 'Professional Food Photography, Culinary Magazine Style, Macro Details, Appetizing, Freshness, Crumbs, Steam.'
+  },
   [StylePreset.DEVELOPER_PRO]: {
     label: 'محترف برمجيات (شخصي)',
     icon: '👨‍💻',

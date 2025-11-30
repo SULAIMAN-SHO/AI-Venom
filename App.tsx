@@ -1,14 +1,16 @@
+
+
 import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { UploadArea } from './components/UploadArea';
 import { ResultArea } from './components/ResultArea';
 import { Controls } from './components/Controls';
-import { StylePreset, CameraAngle, Resolution, LightingPreset, AspectRatio, SubjectPose, FaceDirection } from './types';
+import { StylePreset, CameraAngle, CameraDistance, Resolution, LightingPreset, AspectRatio, SubjectPose, FaceDirection } from './types';
 import { optimizePrompt, generateProductScene } from './services/geminiService';
 
 const App: React.FC = () => {
   // State
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [originalImages, setOriginalImages] = useState<string[]>([]); // Changed to Array
   const [referenceImage, setReferenceImage] = useState<string | null>(null); 
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -18,28 +20,34 @@ const App: React.FC = () => {
   // Inputs
   const [selectedStyle, setSelectedStyle] = useState<StylePreset>(StylePreset.SMART_AD);
   const [selectedAngle, setSelectedAngle] = useState<CameraAngle>(CameraAngle.EYE_LEVEL);
+  const [selectedDistance, setSelectedDistance] = useState<CameraDistance>(CameraDistance.MEDIUM); // New State
   const [selectedLighting, setSelectedLighting] = useState<LightingPreset>(LightingPreset.SOFTBOX);
   const [selectedResolution, setSelectedResolution] = useState<Resolution>(Resolution.FHD);
   const [selectedPose, setSelectedPose] = useState<SubjectPose>(SubjectPose.DEFAULT); 
-  const [selectedFaceDirection, setSelectedFaceDirection] = useState<FaceDirection>(FaceDirection.CAMERA); // New State
+  const [selectedFaceDirection, setSelectedFaceDirection] = useState<FaceDirection>(FaceDirection.CAMERA); 
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(AspectRatio.SQUARE);
   const [backgroundColor, setBackgroundColor] = useState<string>(''); 
   const [prompt, setPrompt] = useState('');
+  const [fixedElements, setFixedElements] = useState(''); 
 
   const handleGenerate = useCallback(async () => {
-    if (!originalImage) return;
+    const isTextMode = selectedStyle === StylePreset.IMAGINE_V5 || selectedStyle === StylePreset.PURE_CREATION;
+    
+    // Check if array is empty
+    if ((!originalImages || originalImages.length === 0) && !isTextMode) return; 
 
     setIsProcessing(true);
     setError(null);
     setGeneratedImage(null);
 
     try {
-      // Step 1: Arabic NLP & Translation
-      setProcessingStep('تحليل المشهد وكتابة التوجيه الفني...');
+      setProcessingStep(isTextMode ? 'Conceptualizing...' : 'Analyzing Composition...');
       const optimizedEnglishPrompt = await optimizePrompt(
         prompt, 
+        fixedElements,
         selectedStyle, 
-        selectedAngle, 
+        selectedAngle,
+        selectedDistance, // Pass Distance
         selectedLighting,
         selectedPose,
         selectedFaceDirection,
@@ -48,15 +56,16 @@ const App: React.FC = () => {
         aspectRatio
       );
       
-      // Step 2: Generation
       if (selectedStyle === StylePreset.UPSCALE) {
-        setProcessingStep('جاري رفع الدقة وتحسين التفاصيل...');
+        setProcessingStep('Upscaling & Refining (8K)...');
+      } else if (isTextMode) {
+        setProcessingStep('Rendering Scene...');
       } else {
-        setProcessingStep('جاري التخيل والإخراج النهائي (Venom AI)...');
+        setProcessingStep('Generating Masterpiece...');
       }
       
       const resultImage = await generateProductScene(
-        originalImage, 
+        originalImages, // Passing array
         referenceImage, 
         optimizedEnglishPrompt, 
         selectedResolution, 
@@ -67,87 +76,94 @@ const App: React.FC = () => {
       setGeneratedImage(resultImage);
     } catch (err) {
       console.error(err);
-      setError('حدث خطأ أثناء المعالجة. يرجى المحاولة مرة أخرى.');
+      setError('An error occurred during generation.');
     } finally {
       setIsProcessing(false);
       setProcessingStep('');
     }
-  }, [originalImage, referenceImage, prompt, selectedStyle, selectedAngle, selectedLighting, selectedResolution, selectedPose, selectedFaceDirection, backgroundColor, aspectRatio]);
+  }, [originalImages, referenceImage, prompt, fixedElements, selectedStyle, selectedAngle, selectedDistance, selectedLighting, selectedResolution, selectedPose, selectedFaceDirection, backgroundColor, aspectRatio]);
 
   return (
-    <div className="min-h-screen pb-12 bg-studio-base text-studio-text font-sans selection:bg-studio-accent selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-studio-base text-studio-text font-sans flex flex-col" dir="rtl">
       <Header />
 
-      <main className="container mx-auto px-4 pt-8 max-w-[1600px]">
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 p-4 rounded-xl mb-6 flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-            </svg>
-            {error}
-          </div>
-        )}
+      {/* Main Layout: Top Controls, Bottom Canvas */}
+      <main className="flex-1 flex flex-col w-full max-w-[1920px] mx-auto p-4 md:p-6 gap-6">
+        
+        {/* Top Deck: Controls */}
+        <section className="w-full bg-studio-panel rounded-2xl border border-white/5 shadow-2xl p-6 relative overflow-visible z-30">
+             <Controls 
+                selectedStyle={selectedStyle}
+                setSelectedStyle={setSelectedStyle}
+                selectedAngle={selectedAngle}
+                setSelectedAngle={setSelectedAngle}
+                selectedDistance={selectedDistance} // New Prop
+                setSelectedDistance={setSelectedDistance} // New Prop
+                selectedLighting={selectedLighting}
+                setSelectedLighting={setSelectedLighting}
+                selectedResolution={selectedResolution}
+                setSelectedResolution={setSelectedResolution}
+                selectedPose={selectedPose}
+                setSelectedPose={setSelectedPose}
+                selectedFaceDirection={selectedFaceDirection}
+                setSelectedFaceDirection={setSelectedFaceDirection}
+                aspectRatio={aspectRatio}
+                setAspectRatio={setAspectRatio}
+                backgroundColor={backgroundColor}
+                setBackgroundColor={setBackgroundColor}
+                prompt={prompt}
+                setPrompt={setPrompt}
+                fixedElements={fixedElements}
+                setFixedElements={setFixedElements}
+                onGenerate={handleGenerate}
+                isProcessing={isProcessing}
+                hasImage={originalImages.length > 0}
+                referenceImage={referenceImage}
+                onReferenceUpload={setReferenceImage}
+                onClearReference={() => setReferenceImage(null)}
+                originalImages={originalImages} // Passed for analysis (using first one)
+             />
+        </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Column: Canvas Area (Display) */}
-            <div className="lg:col-span-8 flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto">
-                    {/* Input Canvas */}
-                    <div className="h-full min-h-[500px]">
-                        <UploadArea 
-                            image={originalImage} 
-                            onImageUpload={setOriginalImage}
-                            onClear={() => {
-                                setOriginalImage(null);
-                                setGeneratedImage(null);
-                            }}
-                        />
-                    </div>
-                    {/* Output Canvas */}
-                    <div className="h-full min-h-[500px] flex items-center justify-center">
-                        <ResultArea 
-                            image={generatedImage} 
-                            isProcessing={isProcessing}
-                            processingStep={processingStep}
-                            aspectRatio={aspectRatio}
-                        />
-                    </div>
+        {/* Bottom Deck: Canvas Area */}
+        <section className="flex-1 w-full grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[500px]">
+            
+            {/* Input Side */}
+            <div className="relative bg-studio-panel rounded-2xl border border-white/5 shadow-inner overflow-hidden flex flex-col">
+                <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent z-10"></div>
+                <div className="flex-1 p-2">
+                   <UploadArea 
+                        images={originalImages} 
+                        onImagesChange={setOriginalImages}
+                        onClear={() => {
+                            setOriginalImages([]);
+                            setGeneratedImage(null);
+                        }}
+                        selectedStyle={selectedStyle}
+                    />
                 </div>
             </div>
 
-            {/* Right Column: Controls */}
-            <div className="lg:col-span-4">
-                <div className="bg-studio-panel rounded-3xl p-6 border border-studio-border sticky top-28 shadow-2xl">
-                   <Controls 
-                      selectedStyle={selectedStyle}
-                      setSelectedStyle={setSelectedStyle}
-                      selectedAngle={selectedAngle}
-                      setSelectedAngle={setSelectedAngle}
-                      selectedLighting={selectedLighting}
-                      setSelectedLighting={setSelectedLighting}
-                      selectedResolution={selectedResolution}
-                      setSelectedResolution={setSelectedResolution}
-                      selectedPose={selectedPose}
-                      setSelectedPose={setSelectedPose}
-                      selectedFaceDirection={selectedFaceDirection}
-                      setSelectedFaceDirection={setSelectedFaceDirection}
-                      aspectRatio={aspectRatio}
-                      setAspectRatio={setAspectRatio}
-                      backgroundColor={backgroundColor}
-                      setBackgroundColor={setBackgroundColor}
-                      prompt={prompt}
-                      setPrompt={setPrompt}
-                      onGenerate={handleGenerate}
-                      isProcessing={isProcessing}
-                      hasImage={!!originalImage}
-                      referenceImage={referenceImage}
-                      onReferenceUpload={setReferenceImage}
-                      onClearReference={() => setReferenceImage(null)}
-                   />
+            {/* Output Side */}
+            <div className="relative bg-studio-panel rounded-2xl border border-white/5 shadow-inner overflow-hidden flex flex-col">
+                <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-studio-accent to-transparent z-10"></div>
+                {error && (
+                    <div className="absolute top-4 left-4 right-4 z-50 text-center text-red-200 text-sm border border-red-500/30 p-3 bg-red-900/40 rounded-lg backdrop-blur-md">
+                        {error}
+                    </div>
+                )}
+                <div className="flex-1 p-2">
+                    <ResultArea 
+                        image={generatedImage} 
+                        isProcessing={isProcessing}
+                        processingStep={processingStep}
+                        aspectRatio={aspectRatio}
+                    />
                 </div>
             </div>
-        </div>
+
+        </section>
+
       </main>
     </div>
   );

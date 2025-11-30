@@ -2,25 +2,30 @@ import React from 'react';
 
 export const Header: React.FC = () => {
   return (
-    <header className="w-full py-5 px-6 flex justify-between items-center bg-[#0f0f0f]/90 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-studio-gradient flex items-center justify-center shadow-neon relative overflow-hidden group">
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-white relative z-10">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
-            </svg>
+    <header className="w-full h-[80px] px-8 flex justify-between items-center bg-studio-panel border-b border-studio-accent/20 shadow-luxury z-50">
+      <div className="flex items-center gap-5">
+        {/* Logo Icon */}
+        <div className="w-12 h-12 bg-gradient-to-br from-studio-accent to-yellow-600 rounded-xl shadow-gold-glow flex items-center justify-center transform rotate-3 hover:rotate-6 transition-transform duration-300">
+            <span className="text-black font-bold text-2xl font-serif">V</span>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-wider text-white font-sans flex items-center gap-2">
-            DEVPRO <span className="text-transparent bg-clip-text bg-studio-gradient drop-shadow-lg">STUDIO</span>
+        
+        <div className="flex flex-col justify-center">
+          <h1 className="text-2xl font-bold tracking-wider text-white uppercase drop-shadow-md">
+            Venom <span className="text-studio-accent">Studio</span>
           </h1>
-          <p className="text-[10px] text-studio-accent font-medium tracking-[0.1em] opacity-80">محترف البرمجيات - AI GENERATION</p>
+          <p className="text-[11px] text-studio-secondary tracking-[0.2em] font-medium uppercase">
+            Professional AI Photography
+          </p>
         </div>
       </div>
-      <div className="hidden md:flex items-center gap-3">
-         <div className="bg-white/5 border border-white/5 px-3 py-1 rounded-full text-[10px] font-mono text-studio-muted flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-studio-success animate-pulse"></span>
-            V 2.0 ONLINE
+      
+      <div className="hidden md:flex items-center gap-4 bg-studio-base/50 px-6 py-2 rounded-full border border-white/5">
+         <div className="flex flex-col items-end">
+             <span className="text-[10px] text-studio-secondary uppercase tracking-wider">Status</span>
+             <span className="text-xs font-bold text-green-400 flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                Online
+             </span>
          </div>
       </div>
     </header>

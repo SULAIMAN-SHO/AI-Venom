@@ -1,11 +1,16 @@
-import React, { useRef } from 'react';
-import { StylePreset, CameraAngle, Resolution, LightingPreset, AspectRatio, SocialPlatform, SubjectPose, FaceDirection, STYLE_DEFINITIONS } from '../types';
+
+
+import React, { useRef, useState } from 'react';
+import { StylePreset, CameraAngle, CameraDistance, Resolution, LightingPreset, AspectRatio, SocialPlatform, SubjectPose, FaceDirection, STYLE_DEFINITIONS, ImageAnalysisResult } from '../types';
+import { analyzeImage } from '../services/geminiService';
 
 interface ControlsProps {
   selectedStyle: StylePreset;
   setSelectedStyle: (s: StylePreset) => void;
   selectedAngle: CameraAngle;
   setSelectedAngle: (a: CameraAngle) => void;
+  selectedDistance: CameraDistance;
+  setSelectedDistance: (d: CameraDistance) => void;
   selectedLighting: LightingPreset;
   setSelectedLighting: (l: LightingPreset) => void;
   selectedResolution: Resolution;
@@ -20,12 +25,16 @@ interface ControlsProps {
   setBackgroundColor: (c: string) => void;
   prompt: string;
   setPrompt: (p: string) => void;
+  fixedElements?: string; 
+  setFixedElements?: (s: string) => void; 
   onGenerate: () => void;
   isProcessing: boolean;
   hasImage: boolean;
   referenceImage: string | null;
   onReferenceUpload: (base64: string) => void;
   onClearReference: () => void;
+  // Passing original images array for analysis
+  originalImages?: string[];
 }
 
 export const Controls: React.FC<ControlsProps> = ({
@@ -33,6 +42,8 @@ export const Controls: React.FC<ControlsProps> = ({
   setSelectedStyle,
   selectedAngle,
   setSelectedAngle,
+  selectedDistance,
+  setSelectedDistance,
   selectedLighting,
   setSelectedLighting,
   selectedResolution,
@@ -47,14 +58,26 @@ export const Controls: React.FC<ControlsProps> = ({
   setBackgroundColor,
   prompt,
   setPrompt,
+  fixedElements = '',
+  setFixedElements,
   onGenerate,
   isProcessing,
   hasImage,
   referenceImage,
   onReferenceUpload,
-  onClearReference
+  onClearReference,
+  originalImages
 }) => {
   const refInputRef = useRef<HTMLInputElement>(null);
+  const [showSocialMenu, setShowSocialMenu] = useState(false);
+  
+  // Analysis State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<ImageAnalysisResult | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  
+  const isTextMode = selectedStyle === StylePreset.IMAGINE_V5 || selectedStyle === StylePreset.PURE_CREATION;
+  const canGenerate = !isProcessing && (hasImage || isTextMode);
 
   const handleRefChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,235 +100,287 @@ export const Controls: React.FC<ControlsProps> = ({
       case SocialPlatform.FACEBOOK_COVER:
         setAspectRatio(AspectRatio.LANDSCAPE); break;
     }
+    setShowSocialMenu(false);
+  };
+
+  const handleAnalyzeImage = async () => {
+    if (!originalImages || originalImages.length === 0) return;
+    setIsAnalyzing(true);
+    try {
+        const result = await analyzeImage(originalImages);
+        setAnalysisResult(result);
+        setShowAnalysisModal(true);
+    } catch (e) {
+        alert("Failed to analyze image");
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
   };
 
   return (
-    <div className="space-y-5 font-sans text-sm" dir="rtl">
+    <div className="flex flex-col gap-6 w-full" dir="rtl">
       
-      {/* Reference Image */}
-      <div className="glass-panel p-5 rounded-3xl">
-         <div className="flex justify-between items-center mb-3">
-            <h3 className="text-[10px] font-bold text-studio-accent uppercase tracking-widest flex items-center gap-2">
-                <span className="w-1 h-3 bg-studio-accent rounded-full"></span>
-                استلهام من صورة (Reference)
-            </h3>
-         </div>
-         
-         {referenceImage ? (
-             <div className="relative w-full h-28 rounded-xl overflow-hidden group border border-white/10">
-                 <img src={referenceImage} className="w-full h-full object-cover opacity-70 hover:opacity-100 transition-all duration-500" alt="Ref" />
-                 <button 
-                    onClick={onClearReference}
-                    className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 p-1.5 rounded-full text-white transition-colors backdrop-blur-md"
-                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                    </svg>
-                 </button>
-             </div>
-         ) : (
-             <div 
-                onClick={() => refInputRef.current?.click()}
-                className="w-full h-16 border border-dashed border-white/20 hover:border-studio-accent hover:bg-studio-accent/5 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group"
-             >
-                 <span className="text-[10px] text-white/50 group-hover:text-studio-accent transition-colors">اضغط لرفع صورة مرجعية (اختياري)</span>
-             </div>
-         )}
-         <input type="file" ref={refInputRef} onChange={handleRefChange} className="hidden" accept="image/*" />
-      </div>
-
-      {/* Social Sizes */}
-      <div className="glass-panel p-5 rounded-3xl">
-        <h3 className="text-[10px] font-bold text-studio-accent uppercase tracking-widest mb-3 flex items-center gap-2">
-           <span className="w-1 h-3 bg-studio-secondary rounded-full"></span>
-           مقاسات السوشيال ميديا
-        </h3>
+      {/* ROW 1: INPUTS & GENERATE BUTTON */}
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
         
-        <div className="grid grid-cols-2 gap-2 mb-4">
-            {[
-                { id: SocialPlatform.INSTAGRAM_POST, label: 'بوست انستجرام (1:1)' },
-                { id: SocialPlatform.INSTAGRAM_STORY, label: 'ستوري / تيك توك (9:16)' },
-                { id: SocialPlatform.YOUTUBE_THUMBNAIL, label: 'يوتيوب (16:9)' },
-                { id: SocialPlatform.INSTAGRAM_PORTRAIT, label: 'انستجرام بورتريه (4:5)' },
-            ].map((item) => (
-                <button
-                    key={item.id}
-                    onClick={() => handleSocialPreset(item.id)}
-                    className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-studio-accent/20 border border-white/5 hover:border-studio-accent/50 transition-all text-right"
-                >
-                    <span className="text-[10px] font-bold text-white/80 block">{item.label}</span>
-                </button>
-            ))}
+        {/* Prompts Container */}
+        <div className="flex-1 flex flex-col gap-3">
+             <div className="flex gap-4">
+                 {/* Reference Upload Button */}
+                 <div className="relative shrink-0">
+                    <button 
+                        onClick={() => !referenceImage && refInputRef.current?.click()}
+                        className={`h-full min-h-[60px] w-[60px] rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all ${
+                            referenceImage 
+                            ? 'border-studio-accent bg-studio-accent/10' 
+                            : 'border-white/10 hover:border-studio-accent/50 bg-studio-base'
+                        }`}
+                        title="تحميل صورة مرجعية (Reference)"
+                    >
+                        {referenceImage ? (
+                            <>
+                                <span className="text-xl">🖼️</span>
+                                <span onClick={(e) => { e.stopPropagation(); onClearReference(); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md hover:bg-red-600">✕</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-xl opacity-50">+</span>
+                                <span className="text-[8px] uppercase tracking-wider opacity-50">إلهام</span>
+                            </>
+                        )}
+                    </button>
+                    <input type="file" ref={refInputRef} onChange={handleRefChange} className="hidden" accept="image/*" />
+                 </div>
+
+                 {/* Main Inputs */}
+                 <div className="flex-1 flex flex-col gap-3">
+                    {/* Top Row: Description */}
+                    <div className="relative flex-1 flex gap-2">
+                        <div className="relative flex-1">
+                            <input
+                            type="text"
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder={isTextMode ? "صف خيالك هنا... (ماتريكس، فضاء، مدينة مستقبلية)" : "صف التعديل المطلوب... (خلفية مكتب، إضاءة سينمائية)"}
+                            className="w-full h-[50px] bg-studio-base border-2 border-white/10 rounded-xl px-4 text-sm text-white placeholder-white/30 focus:border-studio-accent focus:shadow-gold-glow outline-none transition-all"
+                            />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-studio-accent opacity-50">
+                                ✎
+                            </div>
+                        </div>
+                        
+                        {/* Vision Analysis Button */}
+                         {hasImage && !isTextMode && (
+                            <button
+                                onClick={handleAnalyzeImage}
+                                disabled={isAnalyzing}
+                                className="h-[50px] px-4 rounded-xl border border-studio-accent/30 bg-studio-accent/10 hover:bg-studio-accent/20 text-studio-accent flex items-center justify-center gap-2 transition-all"
+                                title="وصف الصورة بالذكاء الاصطناعي"
+                            >
+                                {isAnalyzing ? <span className="animate-spin">⌛</span> : <span>🔮</span>}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Bottom Row: Fixed Elements */}
+                     {setFixedElements && (
+                        <div className="relative flex-1">
+                            <input
+                                type="text"
+                                value={fixedElements}
+                                onChange={(e) => setFixedElements(e.target.value)}
+                                placeholder="عناصر ثابتة إلزامية (مثل: شعار أحمر، بدون أشخاص، أرضية خشبية)..."
+                                className="w-full h-[40px] bg-studio-base/50 border border-white/10 rounded-lg px-4 text-xs text-studio-accent font-medium placeholder-studio-accent/40 focus:border-studio-accent focus:ring-1 focus:ring-studio-accent outline-none"
+                            />
+                        </div>
+                    )}
+                 </div>
+             </div>
         </div>
 
-        {/* Manual Aspect Ratio & Color */}
-        <div className="grid grid-cols-2 gap-3">
-            <div className="relative">
-                <select 
-                    value={aspectRatio}
-                    onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
-                    className="w-full appearance-none bg-black/40 border border-white/10 text-white text-xs rounded-lg p-3 outline-none focus:border-studio-accent transition-colors text-right"
-                >
-                    {Object.values(AspectRatio).map((ratio) => (
-                        <option key={ratio} value={ratio}>{ratio}</option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="relative flex items-center bg-black/40 border border-white/10 rounded-lg px-2 overflow-hidden">
-                <input 
-                    type="color" 
-                    value={backgroundColor || '#000000'}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer"
-                />
-                <span className="text-[10px] text-white/50 mr-2 truncate flex-1">
-                    {backgroundColor || 'لون الخلفية'}
-                </span>
-                {backgroundColor && (
-                    <button onClick={() => setBackgroundColor('')} className="text-white/50 hover:text-white p-1">✕</button>
-                )}
-            </div>
-        </div>
+        {/* Big Generate Button */}
+        <button
+            onClick={onGenerate}
+            disabled={!canGenerate}
+            className={`h-auto min-h-[60px] lg:w-64 rounded-xl font-bold text-lg tracking-widest uppercase shadow-lg transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3 ${
+            !canGenerate
+                ? 'bg-studio-base border border-white/5 text-white/20 cursor-not-allowed'
+                : 'bg-gradient-to-r from-studio-accent to-yellow-500 text-black hover:shadow-gold-glow'
+            }`}
+        >
+            {isProcessing ? (
+                <>
+                    <span className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                    <span>جاري المعالجة</span>
+                </>
+            ) : (
+                <>
+                    <span>✨ إنشاء</span>
+                </>
+            )}
+        </button>
       </div>
 
-      {/* Prompt */}
-      <div className="glass-panel p-5 rounded-3xl">
-        <label className="block text-[10px] font-bold text-studio-accent uppercase tracking-widest mb-2 flex items-center gap-2">
-           <span className="w-1 h-3 bg-studio-accent rounded-full"></span>
-           وصف إبداعي (Prompt)
-        </label>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="صف التعديل الذي تريده هنا (يدعم العربية والعامية)..."
-          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/30 focus:border-studio-accent focus:bg-black/60 outline-none h-20 resize-none transition-all"
-          dir="rtl"
-        />
-      </div>
-
-      {/* Style Grid */}
+      {/* ROW 2: STYLE SELECTION (GRID - PLATINUM STYLE) */}
       <div>
-        <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-3 px-1">النمط الفني (Styles)</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {Object.entries(STYLE_DEFINITIONS).map(([key, def]) => {
-            const isSelected = selectedStyle === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setSelectedStyle(key as StylePreset)}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 aspect-square relative overflow-hidden ${
-                  isSelected 
-                    ? 'bg-studio-accent/20 border-studio-accent shadow-neon scale-105' 
-                    : `bg-white/5 hover:bg-white/10 border-white/5 hover:border-white/20`
-                }`}
-              >
-                <span className={`text-2xl mb-2 ${isSelected ? 'scale-110' : 'opacity-60 grayscale group-hover:grayscale-0'}`}>{def.icon}</span>
-                <span className={`text-[9px] font-bold text-center leading-tight ${isSelected ? 'text-white' : 'text-white/50'}`}>{def.label}</span>
-              </button>
-            );
-          })}
-        </div>
+         <h3 className="text-studio-secondary text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-studio-accent"></span>
+            اختر النمط (Style)
+         </h3>
+         <div className="flex flex-wrap gap-3">
+            {Object.entries(STYLE_DEFINITIONS).map(([key, def]) => {
+                const isSelected = selectedStyle === key;
+                return (
+                <button
+                    key={key}
+                    onClick={() => setSelectedStyle(key as StylePreset)}
+                    className={`min-w-fit px-[20px] py-4 rounded-xl border transition-all duration-200 group relative overflow-hidden flex flex-col items-center justify-center gap-2 ${
+                    isSelected 
+                        ? 'bg-slate-200 border-white text-slate-900 shadow-[0_0_15px_rgba(255,255,255,0.3)] scale-105 z-10' // Platinum/Silver Style
+                        : 'bg-studio-base border-white/5 text-white/60 hover:border-white/20 hover:text-white'
+                    }`}
+                >
+                    <span className={`text-3xl filter drop-shadow-md transition-transform duration-300 ${isSelected ? 'scale-110' : 'grayscale group-hover:grayscale-0'}`}>{def.icon}</span>
+                    <span className="text-[10px] font-bold tracking-wide text-center leading-tight whitespace-nowrap">{def.label}</span>
+                    {isSelected && <div className="absolute inset-0 bg-white/40 animate-pulse pointer-events-none"></div>}
+                </button>
+                );
+            })}
+         </div>
       </div>
 
-      {/* Parameters */}
-      <div className="glass-panel p-5 rounded-3xl space-y-4">
-        
-        {/* Pose Selector */}
-        <div className="grid grid-cols-1 gap-3">
-            <div>
-               <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-2">وضعية الشخص/المنتج</h3>
-               <select 
-                    value={selectedPose}
-                    onChange={(e) => setSelectedPose(e.target.value as SubjectPose)}
-                    className="w-full bg-studio-panel border border-white/10 text-white text-xs rounded-xl focus:border-studio-accent block p-3 outline-none text-right"
-                >
-                    {Object.values(SubjectPose).map((pose) => (
-                        <option key={pose} value={pose}>{pose}</option>
-                    ))}
-               </select>
-            </div>
+      {/* ROW 3: ADVANCED SETTINGS (Clean Grid Including Ratio) */}
+      <div className="bg-studio-base/50 p-4 rounded-xl border border-white/5">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
             
-            <div>
-               <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-2">اتجاه الوجه (النظر)</h3>
-               <select 
-                    value={selectedFaceDirection}
-                    onChange={(e) => setSelectedFaceDirection(e.target.value as FaceDirection)}
-                    className="w-full bg-studio-panel border border-white/10 text-white text-xs rounded-xl focus:border-studio-accent block p-3 outline-none text-right"
-                >
-                    {Object.values(FaceDirection).map((dir) => (
-                        <option key={dir} value={dir}>{dir}</option>
-                    ))}
-               </select>
+            {/* Controls */}
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">الزاوية</label>
+                 <select value={selectedAngle} onChange={(e) => setSelectedAngle(e.target.value as CameraAngle)} 
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(CameraAngle).map(a => <option key={a} value={a}>{a}</option>)}
+                 </select>
             </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-           <div>
-              <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-2">نوع الإضاءة</h3>
-              <select 
-                  value={selectedLighting}
-                  onChange={(e) => setSelectedLighting(e.target.value as LightingPreset)}
-                  className="w-full bg-studio-panel border border-white/10 text-white text-xs rounded-xl focus:border-studio-accent block p-3 outline-none text-right"
-              >
-                  {Object.values(LightingPreset).map((light) => (
-                      <option key={light} value={light}>{light}</option>
-                  ))}
-              </select>
-           </div>
-           
-          <div>
-             <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-2">زاوية الكاميرا</h3>
-             <select 
-                  value={selectedAngle}
-                  onChange={(e) => setSelectedAngle(e.target.value as CameraAngle)}
-                  className="w-full bg-studio-panel border border-white/10 text-white text-xs rounded-xl focus:border-studio-accent block p-3 outline-none text-right"
-              >
-                  {Object.values(CameraAngle).map((angle) => (
-                      <option key={angle} value={angle}>{angle}</option>
-                  ))}
-             </select>
+            {/* New Distance Control */}
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">البعد/التقريب</label>
+                 <select value={selectedDistance} onChange={(e) => setSelectedDistance(e.target.value as CameraDistance)} 
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(CameraDistance).map(d => <option key={d} value={d}>{d}</option>)}
+                 </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">الإضاءة</label>
+                 <select value={selectedLighting} onChange={(e) => setSelectedLighting(e.target.value as LightingPreset)}
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(LightingPreset).map(l => <option key={l} value={l}>{l}</option>)}
+                 </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">الوضعية</label>
+                 <select value={selectedPose} onChange={(e) => setSelectedPose(e.target.value as SubjectPose)}
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(SubjectPose).map(p => <option key={p} value={p}>{p}</option>)}
+                 </select>
+            </div>
+
+             <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">اتجاه الوجه</label>
+                 <select value={selectedFaceDirection} onChange={(e) => setSelectedFaceDirection(e.target.value as FaceDirection)}
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(FaceDirection).map(f => <option key={f} value={f}>{f}</option>)}
+                 </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">الدقة</label>
+                 <select value={selectedResolution} onChange={(e) => setSelectedResolution(e.target.value as Resolution)}
+                    className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                    {Object.values(Resolution).map(r => <option key={r} value={r}>{r}</option>)}
+                 </select>
+            </div>
+
+            {/* Moved Aspect Ratio Here for Logical Flow */}
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">الأبعاد</label>
+                 <div className="relative">
+                    <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+                        className="h-10 w-full bg-studio-panel border border-studio-border rounded-lg px-2 text-xs text-white focus:border-studio-accent outline-none appearance-none">
+                        {Object.values(AspectRatio).map(r => <option key={r} value={r}>{r}</option>)}
+                     </select>
+                      {/* Social Quick Link */}
+                    <button onClick={() => setShowSocialMenu(!showSocialMenu)} className="absolute top-1/2 -translate-y-1/2 left-2 text-[14px] opacity-50 hover:opacity-100" title="Social Sizes">📱</button>
+                    {showSocialMenu && (
+                        <div className="absolute bottom-full left-0 mb-1 bg-studio-panel border border-studio-border p-2 w-32 rounded-lg shadow-xl z-50">
+                            {[{ id: SocialPlatform.INSTAGRAM_POST, label: 'Instagram Sq' }, { id: SocialPlatform.INSTAGRAM_STORY, label: 'Story 9:16' }, { id: SocialPlatform.YOUTUBE_THUMBNAIL, label: 'YouTube' }].map(p => (
+                                <div key={p.id} onClick={() => handleSocialPreset(p.id)} className="p-2 hover:bg-studio-accent hover:text-black rounded text-[10px] text-white cursor-pointer">{p.label}</div>
+                            ))}
+                        </div>
+                    )}
+                 </div>
+            </div>
+
+            {/* Background Color */}
+            <div className="flex flex-col gap-1">
+                 <label className="text-[9px] text-studio-secondary font-bold uppercase">لون الخلفية</label>
+                 <div className="relative h-10 w-full">
+                     <input type="color" value={backgroundColor || '#000000'} onChange={(e) => setBackgroundColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"/>
+                     <div className="w-full h-full rounded-lg border border-studio-border flex items-center justify-center gap-2" style={{backgroundColor: backgroundColor || '#1e293b'}}>
+                        <span className="text-[10px] mix-blend-difference text-white/70">{backgroundColor ? backgroundColor : 'تلقائي'}</span>
+                     </div>
+                 </div>
+            </div>
+
           </div>
-        </div>
-
-        <div>
-            <h3 className="text-[10px] font-bold text-studio-muted uppercase tracking-widest mb-2">جودة المخرج</h3>
-            <select 
-                value={selectedResolution}
-                onChange={(e) => setSelectedResolution(e.target.value as Resolution)}
-                className="w-full bg-studio-panel border border-white/10 text-white text-xs rounded-xl focus:border-studio-accent block p-3 outline-none text-right"
-            >
-                {Object.values(Resolution).map((res) => (
-                    <option key={res} value={res}>{res}</option>
-                ))}
-            </select>
-        </div>
       </div>
 
-      {/* Generate Button */}
-      <button
-        onClick={onGenerate}
-        disabled={isProcessing || !hasImage}
-        className={`w-full py-4 rounded-2xl font-bold text-sm shadow-lg transition-all duration-300 flex items-center justify-center gap-2 mt-6 border border-white/5 overflow-hidden ${
-          isProcessing || !hasImage
-            ? 'bg-white/5 text-white/30 cursor-not-allowed'
-            : 'bg-studio-gradient text-white hover:shadow-neon hover:scale-[1.02]'
-        }`}
-      >
-        {isProcessing ? (
-            <div className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                <span className="tracking-wider">جاري المعالجة...</span>
+      {/* Analysis Result Modal */}
+      {showAnalysisModal && analysisResult && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-studio-panel border border-studio-accent/30 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="bg-studio-base p-4 border-b border-white/5 flex justify-between items-center">
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                        <span>🔮</span> نتيجة تحليل الصورة
+                    </h3>
+                    <button onClick={() => setShowAnalysisModal(false)} className="text-white/50 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">✕</button>
+                </div>
+                
+                <div className="p-6 flex flex-col gap-6 max-h-[70vh] overflow-y-auto">
+                    
+                    {/* Creation Prompt */}
+                    <div className="bg-black/30 p-4 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-studio-accent text-xs font-bold uppercase tracking-widest">وصف تخيلي (لإعادة البناء من الصفر)</span>
+                            <button onClick={() => copyToClipboard(analysisResult.creationPrompt)} className="text-[10px] bg-white/10 hover:bg-studio-accent hover:text-black px-3 py-1 rounded-md transition-colors text-white">
+                                نسخ النص
+                            </button>
+                        </div>
+                        <p className="text-white/80 text-sm leading-relaxed font-mono">{analysisResult.creationPrompt}</p>
+                    </div>
+
+                    {/* Preservation Prompt */}
+                    <div className="bg-black/30 p-4 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-center mb-2">
+                             <span className="text-green-400 text-xs font-bold uppercase tracking-widest">وصف الحفاظ على العنصر (للتعديل)</span>
+                             <button onClick={() => copyToClipboard(analysisResult.preservationPrompt)} className="text-[10px] bg-white/10 hover:bg-green-400 hover:text-black px-3 py-1 rounded-md transition-colors text-white">
+                                نسخ النص
+                            </button>
+                        </div>
+                        <p className="text-white/80 text-sm leading-relaxed font-mono">{analysisResult.preservationPrompt}</p>
+                    </div>
+                    
+                </div>
             </div>
-        ) : (
-            <>
-                <span className="tracking-widest">ابدأ التخيل (GENERATE)</span>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 transform rotate-180">
-                   <path fillRule="evenodd" d="M9.315 7.584C12.195 3.883 16.695 1.5 21.75 1.5a.75.75 0 0 1 .75.75c0 5.056-2.383 9.555-6.084 12.436h.004c-1.228.824-2.619 1.496-4.105 1.982.087.576.169 1.143.225 1.713a.75.75 0 0 1-.75.819H2.5a.75.75 0 0 1-.75-.75V8.25a.75.75 0 0 1 .819-.75c.57.056 1.137.138 1.713.225.486-1.486 1.158-2.877 1.982-4.105v.004Zm4.155 3.641a7.55 7.55 0 0 0-2.677-1.655A5.338 5.338 0 0 0 9.25 6.375a5.338 5.338 0 0 0-3.193 3.193 7.55 7.55 0 0 0-1.655 2.677c.486.344.993.65 1.518.915.46-.31.928-.61 1.396-.903A6.836 6.836 0 0 1 9 10.5a6.836 6.836 0 0 1 1.759-1.243c-.293.468-.593.936-.903 1.396.264.525.571 1.032.915 1.518Z" clipRule="evenodd" />
-                </svg>
-            </>
-        )}
-      </button>
+        </div>
+      )}
+
     </div>
   );
 };
